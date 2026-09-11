@@ -1,0 +1,350 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif; 
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151; 
+  margin-bottom: 8px;
+}
+.olvidaste-link {
+  color: #166534; 
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.fondo {
+  background: linear-gradient(135deg, #f0fdf4 0%, #e8faf0 100%);
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px; 
+}
+.interfaz-dashboard {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 30px 40px; 
+  box-sizing: border-box;
+  gap: 25px;
+  align-items: flex-start; 
+}
+.obligatorio {
+  color: #ff0000; 
+}
+.usuario-rol {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+.sidebar-inferior {
+  width:100%;
+  display: flex;
+  justify-content: center;
+}
+.usuario-email {
+  display: block;             
+  width: 100%;                
+  font-size: clamp(11px, 2vw, 13px); 
+  color: #6b7280;
+  word-break: break-all;      
+  white-space: normal;        
+  line-height: 1.2;          
+  margin-top: 2px;
+}
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.icono-excel .material-icons {
+  font-size: 48px;
+}
+
+
+.bloque-usuario {
+  background-color: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 20px 15px;
+  text-align: center;
+  margin-bottom: 30px;
+}
+.escribir{
+  width: 100%;
+  height: 48px;
+  background-color: #f9fafb; 
+  border: 1px solid #e5e7eb; 
+  border-radius: 12px; 
+  padding: 0 16px; 
+  font-size: 15px;
+  color: #1f2937;
+  outline: none; 
+  transition: border-color 0.2s;
+}
+
+.escribir::placeholder {
+  color: #9ca3af; 
+}
+
+.escribir:focus {
+  border-color: #34d399;
+  background-color: white;
+}
+.boton_principal {
+  width: 100%;
+  height: 48px;
+  background-color: #84cc16;
+  color: white;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 700; 
+  cursor: pointer;
+  margin-bottom: 25px;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.boton_principal:hover {
+  background-color: #65a30d; 
+}
+
+.contenedor {
+  background-color: white;
+  width: 100%;
+  max-width: 500px;     
+  height: auto;
+  border-radius: 20px;
+  padding: 25px 40px;     
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: left;
+}
+
+
+.logo_inicio {
+  width: 120px; 
+  height: 120px;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 25px;
+}
+
+.logo-horizontal {
+  width: 200px;
+  height: 70px;
+  align-items: center;
+}
+
+.input-archivo-simulado {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 15px;
+  gap: 10px;
+}
+.btn-verde-principal {
+  background-color: #84cc16;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-verde-principal:hover {
+  background-color: #65a30d;
+}
+.input-archivo-simulado input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  height: 48px;
+  font-size: 14px;
+  color: #1f2937;
+  outline: none;
+}
+.centro_texto{
+  text-align: center;
+  margin-bottom: 35px;
+  width: 100%;
+}
+.fila-accion-archivo {
+  display: flex;
+  gap: 15px;
+  width: 100%;
+}
+
+h1 {
+  font-size: 25px;
+  font-weight: 800;
+  color: #111827; 
+  margin-bottom: 8px;
+}
+
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  color: #6b7280;
+  font-size: 15px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.nav-item .material-icons {
+  font-size: 20px;
+}
+
+.nav-item:hover {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.nav-item.activo {
+  background-color: #f0fdf4;
+  color: #65a30d;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 14px;
+  color: #6b7280; 
+  font-weight: 400;
+}
+
+.parte_formulario {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+h3 {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+.sidebar {
+  width: 260px;
+  background-color: white;
+  height: 95vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 25px 20px;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 4px 0 10px -1px rgba(0, 0, 0, 0.02);
+  z-index: 10;
+  border-radius: 16px;
+}
+.contenedor-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 30px;
+}
+
+.avatar {
+  width: 45px;
+  height: 45px;
+  background-color: #f0fdf4;
+  color: #84cc16;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px auto;
+}
+
+.usuario-rol {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+.usuario-email {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 2px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-item .material-icons {
+  font-size: 20px;
+}
+
+.menu-item:hover {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.menu-item.activo {
+  background-color: #f0fdf4;
+  color: #65a30d;
+  font-weight: 600;
+}
+
+.boton-c-sesion {
+  width: 100%;
+  background: none;
+  border: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  color: #dc2626;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background-color 0.2s;
+}
+
+.boton-c-sesion:hover {
+  background-color: #fef2f2;
+}
+}
