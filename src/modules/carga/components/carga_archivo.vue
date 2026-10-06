@@ -1,6 +1,5 @@
 <template>
   <div class="interfaz-dashboard" :class="{ 'drag-activo-global': isDragging }" @dragover.prevent="isDragging = true" @dragleave.prevent="manejadorDragLeave" @drop.prevent="manejadorDrop">
-    <!-- Overlay visual cuando se arrastra por cualquier lado de la pantalla -->
     <div v-if="isDragging" class="overlay-drag">
       <span class="material-icons icono-drop-global">cloud_upload</span>
       <p>Soltá tu archivo en cualquier parte</p>
@@ -65,12 +64,16 @@
               type="text" 
               placeholder="Nombre de la actividad" 
               v-model="nombreSinExtension"
-              :disabled="!archivoSeleccionado"
+              :disabled="!archivoSeleccionado">
           </div>
 
-          <button type="button" class="btn-verde-principal" @click="abrirExplorador">
+          <button v-if="!archivoSeleccionado" type="button" class="btn-verde-principal" @click="abrirExplorador">
             <span class="material-icons">add</span>
             AGREGAR ARCHIVO
+          </button>
+          <button v-if="archivoSeleccionado" type="button" class="btn-verde-principal" @click="limpiarExplorador">
+            <span class="material-icons">add</span>
+            BORRAR ARCHIVO
           </button>
         </div>
       </div>
@@ -81,7 +84,7 @@
             <h3>Columnas a analizar</h3>
             <p>Selecciona las columnas que contiene la información</p>
           </div>
-          <button class="btn-analisis">CREAR ANÁLISIS</button>
+          <button class="btn-analisis" @click="subirArchivo">CREAR ANÁLISIS</button>
         </div>
         <div class="grilla-columnas">
           <div v-for="columna in columnas" :key="columna.id" class="item-columna">
@@ -107,44 +110,91 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { ir_estadisticas, ir_inicio, ir_historial } from '@/components/navegacion';
+import axios  from 'axios'
 
-// --- REFERENCIAS Y ESTADO ---
 const fileInput = ref(null);
 const archivoSeleccionado = ref(null);
 const nombreSinExtension = ref('');
-const extension = ref(''); // Se guarda internamente pero no se muestra en la UI
+const extension = ref(''); 
 const isDragging = ref(false);
+const cargandoCabeceras=ref(false);
+
+const subirArchivo= async () => {
+  if(!archivoSeleccionado.value){
+    alert('Por favor, seleccione un archivo antes de continuar');
+    return;
+  }
+
+  try{
+    const formData= new FormData();
+    formData.append('file',archivoSeleccionado.value);
+    formData.append('nombreActividad', nombreSinExtension.value);
+    formData.append('columnasMapeadas',JSON.stringify(columnas.value));
+
+    formData.append('usuario_ID','1')
+    const respuesta= await axios.post('http://localhost:3000/api/archivos/upload',formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log('Análisis creado con éxito:', respuesta.data);
+    alert('¡Análisis creado correctamente')
+  }catch(error){
+    console.log('error al enviar el archivo:', error);
+    alert('Hubo un problema al cargar el archivo')
+  }
+}
 
 const columnas = ref([
-  { id: 1, nombre: 'Nombre', valor: 'A', icono: 'account_circle' },
-  { id: 2, nombre: 'Apellido', valor: 'B', icono: 'person_outline' },
-  { id: 3, nombre: 'Correo', valor: 'C', icono: 'mail' },
-  { id: 4, nombre: 'Teléfono', valor: 'D', icono: 'phone' },
-  { id: 5, nombre: 'DNI', valor: 'E', icono: 'badge' },
-  { id: 6, nombre: 'Barrio', valor: 'F', icono: 'location_on' },
-  { id: 7, nombre: 'Ciudad', valor: 'G', icono: 'location_searching' },
-  { id: 7, nombre: 'Provincia', valor: 'H', icono: 'map' },
-  { id: 7, nombre: 'Edad', valor: 'I', icono: '18_up_rating' },
-  { id: 8, nombre: 'Sexo', valor: 'J', icono: 'wc' }
+  { id: 1, nombre: 'Nombre', valor: '', alias: ['nombre', 'nombres', 'first name'] },
+  { id: 2, nombre: 'Apellido', valor: '', alias: ['apellido', 'apellidos', 'last name'] },
+  { id: 3, nombre: 'Correo', valor: '',  alias: ['correo', 'correo electronico', 'email', 'e-mail', 'mail'] },
+  { id: 4, nombre: 'Teléfono', valor: '', icono: 'phone', alias: ['telefono', 'celular', 'phone', 'movil', 'tel'] },
+  { id: 5, nombre: 'DNI', valor: '', alias: ['dni', 'documento', 'cedula', 'nro_doc', 'pasaporte'] },
+  { id: 6, nombre: 'Barrio', valor: '', alias: ['barrio', 'vecindario', 'neighborhood'] },
+  { id: 7, nombre: 'Ciudad', valor: '', alias: ['ciudad', 'localidad', 'municipio', 'city'] },
+  { id: 8, nombre: 'Provincia', valor: '', alias: ['provincia', 'estado', 'state'] },
+  { id: 9, nombre: 'Edad', valor: '',  alias: ['edad', 'age', 'años'] },
+  { id: 10, nombre: 'Sexo', valor: '', alias: ['sexo', 'genero', 'gender'] },
 ]);
 
 const letras = ref([
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
   'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
 ]);
+const limpiarExplorador = () => {
+  archivoSeleccionado.value=null;
+  nombreSinExtension.value='';
+  if(fileInput.value)fileInput.value.value='';
+  columnas.value.forEach(c=>c.valor='');
+}
 
-// Si en algún momento necesitás el nombre completo con su extensión para enviarlo al backend:
-const nombreCompletoParaBackend = computed(() => {
-  if (!nombreSinExtension.value) return '';
-  return `${nombreSinExtension.value}${extension.value}`;
-});
+const autocompletarMapeo = (cabecerasBackend) => {
+  const normalizar = (texto) => 
+    texto ? texto.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
 
-// --- MÉTODOS ---
+  columnas.value.forEach((col) => {
+    col.valor = ''; // Reseteamos valor previo
+
+    for (const [letra, cabeceraTexto] of Object.entries(cabecerasBackend)) {
+      const textoLimpio = normalizar(cabeceraTexto);
+      const coincide = col.alias.some((alias) => normalizar(alias) === textoLimpio);
+
+      if (coincide) {
+        col.valor = letra; // Pre-seleccionamos la letra en el select
+        break;
+      }
+    }
+  });
+};
+
+
 const abrirExplorador = () => {
   fileInput.value.click();
 };
 
-const procesarArchivo = (file) => {
+const procesarArchivo = async (file) => {
   if (!file) return;
 
   const extensionesPermitidas = ['xlsx', 'xls', 'csv'];
@@ -158,10 +208,25 @@ const procesarArchivo = (file) => {
 
   archivoSeleccionado.value = file;
   
-  // Extraemos únicamente el nombre y guardamos la extensión en segundo plano
   const ultimoPunto = file.name.lastIndexOf('.');
   nombreSinExtension.value = file.name.substring(0, ultimoPunto);
   extension.value = extEncontrada;
+
+  cargandoCabeceras.value=true;
+  const formData=new FormData();
+  formData.append('file',file);
+
+  try{
+    const respuesta= await axios.post('http://localhost:3000/api/archivos/previaCabecera',formData,{
+      headers:{'Content-Type': 'multipart/form-data'},
+    });
+    if(respuesta.data && respuesta.data.cabeceras)
+    {autocompletarMapeo(respuesta.data.cabeceras);}
+  }catch(error){
+    console.error('Error al obtener cabeceras:', error);
+  } finally {
+   cargandoCabeceras.value = false;
+   }
 };
 
 const manejadorInput = (event) => {

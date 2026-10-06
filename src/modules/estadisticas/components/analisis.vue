@@ -77,7 +77,7 @@
         <div class="grilla-totales" v-if="!filtrosAbiertos">
           <div class="tarjeta-total-mini">
             <span class="titulo-total">Total del inscriptos</span>
-            <span class="numero-total">{{ listaParticipantes.length }}</span>
+            <span class="numero-total">{{ listaParticipantesBD.length }}</span>
           </div>
           <div class="tarjeta-total-mini">
             <span class="titulo-total">Barrios registrados</span>
@@ -87,7 +87,7 @@
         <div class="grilla-totales" v-else>
           <div class="tarjeta-total-mini full-width">
             <span class="titulo-total centrado">Total de inscriptos</span>
-            <span class="numero-total centrado">{{ listaParticipantes.length }}</span>
+            <span class="numero-total centrado">{{ listaParticipantesBD.length }}</span>
           </div>
         </div>
         <div class="tarjeta-panel panel-filtros">
@@ -222,7 +222,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { ir_carga, ir_inicio, ir_historial } from '@/components/navegacion';
 import { Bar, Line } from 'vue-chartjs';
 import L from 'leaflet';
-import { listaActividades } from '@/components/listas'; 
+import { listaActividades,listaParticipantesBD } from '@/components/listas'; 
 import Chart from 'chart.js/auto';
 import { 
   Chart as ChartJS, 
@@ -277,7 +277,7 @@ const filtros = ref({
 const ordenActual = ref('');
 
 const filtroParticipantes = computed(() =>{
-  let resultado = listaParticipantes.value.filter(P=>{
+  let resultado = listaParticipantesBD.value.filter(P=>{
     if (filtros.value.barrio && P.barrio !== filtros.value.barrio){
       return false;
     }
@@ -306,7 +306,7 @@ const listaParticipantes = ref([
   { nombre: 'Sofía', apellido: 'Gómez', dni: '42105938', telefono: '3564521098', correo: 'sofi.gomez@gmail.com', barrio: 'Centro', edad: 24, sexo: 'F' },
   { nombre: 'Mateo', apellido: 'Rossi', dni: '44521089', telefono: '3564632145', correo: 'mrossi@hotmail.com', barrio: 'La Milka', edad: 22, sexo: 'M' },
   { nombre: 'Valentina', apellido: 'Pérez', dni: '39852147', telefono: '3564412589', correo: 'valen.perez@gmail.com', barrio: 'Barrio Jardín', edad: 28, sexo: 'F' },
-  { nombre: 'Joaquín', apellido: 'Sosa', dni: '45123987', telefono: '3564587963', correo: 'joaco.sosa@outlook.com', barrio: 'Consolata', edad: 21, sexo: 'M' },
+  { nombre: 'Joaquín', apellido: 'Sosa', dni: '45123987', telefono: '3564587963', correo: 'joaco.sosa@outlook.com', barrio: 'Consolata', edad: 21, sexo: 'X' },
   { nombre: 'Camila', apellido: 'Martínez', dni: '41236547', telefono: '3564698741', correo: 'cami.martinez@gmail.com', barrio: 'Las Rosas', edad: 26, sexo: 'F' },
   { nombre: 'Lucas', apellido: 'Fernández', dni: '43987412', telefono: '3564512369', correo: 'lucas.fer@gmail.com', barrio: 'Sáenz Peña', edad: 23, sexo: 'M' },
   { nombre: 'Lucía', apellido: 'Alvarez', dni: '40789654', telefono: '3564478521', correo: 'lu.alvarez@yahoo.com', barrio: 'Centro', edad: 27, sexo: 'F' },
@@ -338,7 +338,7 @@ async function procesarYDibujarBarrios() {
   capasMapa.value.clearLayers(); 
 
   const conteoBarrios = {};
-  listaParticipantes.value.forEach(p => {
+  listaParticipantesBD.value.forEach(p => {
     if (p.barrio) {
       conteoBarrios[p.barrio] = (conteoBarrios[p.barrio] || 0) + 1;
     }
@@ -417,7 +417,8 @@ onMounted(() => {
 function obtenerdatosrosquilla(){
   const hombres= filtroParticipantes.value.filter(p=>p.sexo==='M').length;
   const mujeres= filtroParticipantes.value.filter(p=>p.sexo==='F').length;
-  return {labels: ['HOMBRES','MUJERES'],datasets:[{data:[hombres,mujeres],backgroundColor: ['#3B82F6', '#EC4899']}]
+  const x = filtroParticipantes.value.filter(p=>p.sexo==='X').length;
+  return {labels: ['HOMBRES','MUJERES','X'],datasets:[{data:[hombres,mujeres,x],backgroundColor: ['#3B82F6', '#EC4899','#6366f1']}]
   }
 }
 
@@ -471,12 +472,12 @@ function ordenarListaParticipantes(){
 }
 
 const listaBarriosUnicos = computed(() =>{
-  const barrios = listaParticipantes.value.map(p=>p.barrio).filter(barrio=>barrio);
+  const barrios = listaParticipantesBD.value.map(p=>p.barrio).filter(barrio=>barrio);
   return [...new Set(barrios)].sort();
 })
 
 const cantidadBarrios= computed(()=>{
-  const barrios = listaParticipantes.value.map(p=>p.barrio).filter(barrio=>barrio&&barrio.trim()!=='')
+  const barrios = listaParticipantesBD.value.map(p=>p.barrio).filter(barrio=>barrio&&barrio.trim()!=='')
   return new Set (barrios).size;
 })
 
