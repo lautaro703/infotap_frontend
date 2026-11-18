@@ -1,37 +1,6 @@
 <template>
   <div class="interfaz-dashboard">
-    <div class="sidebar">
-      <div class="sidebar-superior">
-          <img src="/2.png" alt="logo" class="logo-horizontal">
-        <div class="bloque-usuario">
-          <div class="avatar">
-            <span class="material-icons">person</span>
-          </div>
-          <span class="usuario-rol">USUARIO</span>
-          <span class="usuario-email">usuario@gmail.com</span>
-        </div>
-        <div class="menu">
-          <button @click="ir_carga" class="nav-item">
-            <span class="material-icons">cloud_upload</span>
-            Cargar datos
-          </button>
-          <button @click="ir_estadisticas" class="nav-item">
-            <span class="material-icons">bar_chart</span>
-            Estadísticas
-          </button>
-          <button @click="" class="nav-item activo">
-            <span class="material-icons">description</span>
-            Historial
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-inferior">
-        <button @click="ir_inicio" class="boton-c-sesion">
-          <span class="material-icons">logout</span>
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
+    <Sidebar/>
     <div class="contenido-principal">
     <div class="tarjeta-panel">
       <div class="cabecera-seccion">
@@ -43,7 +12,7 @@
             <p>Podés visualizar todas las actividades que realizaste</p>
           </div>
           <div class="cabecera-boton">
-            <button class="btn-abrir" @click="exportarExel">
+            <button class="btn-abrir" :class="{ 'btn-analisis-deshabilitado': listaActividades.length === 0 }" :disabled=" listaActividades.length===0" @click="exportarExel">
               <span class="material-icons">download</span> 
               Exportar Participantes
             </button>
@@ -59,11 +28,11 @@
           <div class="contenedor-filas">
             <div v-for="actividad in listaActividades" :key="actividad.id" class="fila-actividad" :class="{ 'fila-seleccionada': actividadSeleccionada.includes(actividad.id) }" @click="seleccionarActividad(actividad.id)">
               <div class="indicador-lateral"></div>
-              <span class="col-nombre texto-negrita">{{ actividad.nombre }}</span>
-              <span class="col-fecha text-mutado">{{ actividad.fecha }}</span>
-              <span class="col-participantes texto-negrita">{{ actividad.participantes.toLocaleString() }}</span>
+              <span class="col-nombre texto-negrita">{{ actividad.archivo?.nombre?? 'Sin nombre' }}</span>
+              <span class="col-fecha text-mutado">{{ formatearFecha(actividad.fecha_analisis) }}</span>
+              <span class="col-participantes texto-negrita">{{ (actividad.cantidad_participante ?? 0).toLocaleString() }}</span>
               <div class="col-acciones grupo-botones-accion">
-                <button class="btn-eliminar" @click.stop="eliminarActividad(actividad.id)">
+                <button class="btn-eliminar" @click.stop="confirmarEliminacion(actividad.archivo.id)">
                   <span class="material-icons">close</span>
                 </button>
                 <div class="icono-estado">
@@ -73,19 +42,70 @@
             </div>
           </div>
         </div>
-        <button class="btn-abrir" :disabled="actividadSeleccionada.length===0" @click="abrirActividad">ABRIR ({{actividadSeleccionada.length}})</button>
+        <button class="btn-abrir" :disabled="actividadSeleccionada.length===0" @click="abrirAnalisis">ABRIR ({{actividadSeleccionada.length}})</button>
       </div>
       </div>
    </div>
+   <Notificacion
+      :mostrar="notificacion.mostrar"
+      :tipo="notificacion.tipo"
+      :titulo="notificacion.titulo"
+      :mensaje="notificacion.mensaje"
+      :texto-boton="notificacion.textoBoton"
+      :procesando="eliminando"
+      @cerrar="cancelarEliminacion"
+      @confirmar="eliminarActividad"
+    />
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { ir_carga,ir_inicio, ir_estadisticas } from '@/components/navegacion';
+import { onMounted, ref } from 'vue';
+import { ir_carga, cerrar_sesion, ir_estadisticas } from '@/components/navegacion';
 import XLSX from 'xlsx-js-style';
-import { listaActividades } from '@/components/listas';
-import { listaParticipantesBD } from '@/components/listas';
+import { listaParticipantesBD,cargarParticipantes } from '@/components/listas';
+import Notificacion from '@/modules/extras/components/notificacion.vue';
+import router from '@/router';
+import Sidebar from '@/modules/extras/components/sidebar.vue';
+
 const actividadSeleccionada = ref([]);
+
+const listaActividades = ref([]);
+
+const cargaH= async () => {
+  try {
+    const respuesta = await fetch('http://localhost:3000/api/analisis');
+    
+    if (!respuesta.ok) {
+      throw new Error('Error al obtener el historial');
+    }
+
+    listaActividades.value = await respuesta.json();
+  } catch (error) {
+    console.error('Error al cargar el historial:', error);
+    listaActividades.value=[];
+  }
+}
+
+function abrirAnalisis(id) {
+ 
+  if(actividadSeleccionada.value.length===0){
+    return;
+  }
+  router.push({
+    path:'/analisis',query:{ids:actividadSeleccionada.value.join(',')}
+  });
+}
+const notificacion = ref({
+  mostrar: false,
+  tipo: 'exito',
+  titulo: '',
+  mensaje: '',
+  textoBoton: 'Volver'
+});
+
+onMounted(()=> {
+  cargaH();
+});
 
 function seleccionarActividad(id) {
   const index = actividadSeleccionada.value.indexOf(id);
@@ -95,55 +115,173 @@ function seleccionarActividad(id) {
   actividadSeleccionada.value.splice(index,1)
   }
 }
+function formatearFecha(fechaStr) {
+  if (!fechaStr) return '';
+  const fecha = new Date(fechaStr);
+  
+  return new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(fecha);
+}
+async function exportarExel() {
 
-function exportarExel() {
-  if (!listaParticipantesBD.value || listaParticipantesBD.value.length === 0) {
-    alert("Todavía no hay participantes registrados");
+  if (listaActividades.value.length === 0) {
+    notificacion.value = {
+      mostrar: true,
+      tipo: 'error',
+      titulo: 'No hay análisis',
+      mensaje: 'Primero tenés que cargar un archivo y generar un análisis.',
+      textoBoton: 'Volver'
+    };
     return;
   }
 
-  const datosFormateados = listaParticipantesBD.value.map(p => ({
-    'Nombre': p.nombre,
-    'Apellido': p.apellido,
-    'DNI': p.dni,
-    'Teléfono': p.telefono,
-    'Correo Electrónico': p.correo,
-    'Barrio': p.barrio,
-    'Edad': p.edad,
-    'Sexo': p.sexo
-  }));
+  try {
+    await cargarParticipantes();
 
-  const hoja = XLSX.utils.json_to_sheet(datosFormateados);
+    if (listaParticipantesBD.value.length === 0) {
+      notificacion.value = {
+        mostrar: true,
+        tipo: 'error',
+        titulo: 'No hay participantes',
+        mensaje: 'No hay participantes disponibles para exportar.',
+        textoBoton: 'Volver'
+      };
+      return;
+    }
 
-  hoja['!cols'] = [
-    { wch: 15 }, 
-    { wch: 15 }, 
-    { wch: 14 }, 
-    { wch: 16 }, 
-    { wch: 28 }, 
-    { wch: 18 }, 
-    { wch: 10 },
-    { wch: 10 } 
-  ];
+    const datosFormateados = listaParticipantesBD.value.map(p => ({
+      'Nombre': p.nombre,
+      'Apellido': p.apellido,
+      'DNI': p.dni,
+      'Teléfono': p.telefono,
+      'Correo Electrónico': p.correo,
+      'Barrio': p.barrio?.nombre,
+      'Ciudad': p.barrio?.ciudad?.nombre,
+      'Provincia': p.barrio?.ciudad?.provincia?.nombre,
+      'Edad': p.edad,
+      'Sexo': p.sexo,
+    }));
 
-  const celdasEncabezado = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
-  
-  celdasEncabezado.forEach(celda => {
-    if (hoja[celda]) {
-      hoja[celda].s = {font: { name: 'Calibri',sz: 11,bold: true}};
+    const hoja = XLSX.utils.json_to_sheet(datosFormateados);
+
+    hoja['!cols'] = [
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 10 },
+    ];
+
+    const celdasEncabezado = [
+      'A1', 'B1', 'C1', 'D1', 'E1',
+      'F1', 'G1', 'H1', 'I1', 'J1'
+    ];
+
+    celdasEncabezado.forEach(celda => {
+      if (hoja[celda]) {
+        hoja[celda].s = {
+          font: {
+            name: 'Calibri',
+            sz: 11,
+            bold: true
+          }
+        };
+      }
+    });
+
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Participantes');
+
+    XLSX.writeFile(libro, 'Lista_participantes_InfoTap.xlsx');
+
+  } catch (error) {
+    console.error('Error al exportar participantes:', error);
+
+    notificacion.value = {
+      mostrar: true,
+      tipo: 'error',
+      titulo: '¡Hubo un error!',
+      mensaje: 'No se pudo exportar la lista de participantes. Intentá nuevamente.',
+      textoBoton: 'Volver'
+    };
+  }
+}
+
+function unificarAnalisis() {
+  if (actividadSeleccionada.value.length < 2) { 
+    alert('Seleccioná al menos dos análisis para unificarlos.');
+    return;
+  }
+
+  router.push({
+    path: '/analisis',
+    query: {
+      ids: actividadSeleccionada.value.join(',')
     }
   });
-
-  const libro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(libro, hoja, 'Participantes');
-
-  XLSX.writeFile(libro, 'Lista_participantes_InfoTap.xlsx');
 }
 
-function eliminarActividad(id) {
-  listaActividades.value = listaActividades.value.filter(act => act.id !== id);
-  actividadSeleccionada.value=actividadSeleccionada.value.filter(seleccionId => seleccionId!==id);
+const archivoAEliminar = ref(null);
+const eliminando = ref(false);
+
+function confirmarEliminacion(id) {
+  archivoAEliminar.value = id;
+
+  Object.assign(notificacion.value, {
+    mostrar: true,
+    tipo: 'confirmacion',
+    titulo: '¿Eliminar archivo?',
+    mensaje: 'Se eliminarán el archivo, sus análisis y los participantes asociados. Esta acción no se puede deshacer.',
+    textoBoton: 'Confirmar'
+  });
 }
+
+function cancelarEliminacion() {
+  if (eliminando.value) return;
+  notificacion.value.mostrar = false;
+  archivoAEliminar.value = null;
+}
+
+const eliminarActividad = async () => {
+  if (archivoAEliminar.value === null) return;
+
+  eliminando.value = true;
+
+  try {
+    const respuesta = await fetch(
+      `http://localhost:3000/api/archivos/${archivoAEliminar.value}`,
+      { method: 'DELETE' }
+    );
+
+    if (!respuesta.ok) {
+      throw new Error('No se pudo eliminar el archivo');
+    }
+
+    await cargaH();
+
+    notificacion.value.tipo = 'exito';
+    notificacion.value.titulo = '¡Eliminación exitosa!';
+    notificacion.value.mensaje = 'El archivo y sus datos asociados se eliminaron correctamente.';
+    notificacion.value.textoBoton = 'Volver';
+  } catch (error) {
+    console.error('Error al eliminar el archivo:', error);
+
+    notificacion.value.tipo = 'error';
+    notificacion.value.titulo = '¡Hubo un error!';
+    notificacion.value.mensaje = 'No se pudo eliminar el archivo. Intentá nuevamente.';
+    notificacion.value.textoBoton = 'Volver';
+  } finally {
+    eliminando.value = false;
+  }
+};
 
 function abrirActividad() {
   alert(`Abriendo la actividad con ID: ${actividadSeleccionada.value.join(',')}`);
@@ -152,12 +290,6 @@ function abrirActividad() {
 </script>
 
 <style scoped>
-
-.nav-item.activo {
-  background-color: #f0fdf4;
-  color: #65a30d;
-  font-weight: 600;
-}
 .cabecera-seccion {
   display: flex;
   align-items: center;
@@ -174,15 +306,13 @@ function abrirActividad() {
   justify-content: center;
 }
 
+
 .contenido-principal {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
-}
-.icono-verde-claro .material-icons {
-  font-size: 26px;
 }
 
 .texto-cabecera-seccion h3 {

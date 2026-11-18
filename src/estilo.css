@@ -18,20 +18,11 @@ label {
   font-weight: 600;
   text-decoration: none;
 }
-.fondo {
-  background: linear-gradient(135deg, #f0fdf4 0%, #e8faf0 100%);
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px; 
-}
 .interfaz-dashboard {
   display: flex;
   width: 100%;
   min-height: 100vh;
-  background-color: #f3f4f6;
+  background-color: #eef4ff;
   padding: 30px 40px; 
   box-sizing: border-box;
   gap: 25px;
@@ -52,6 +43,13 @@ label {
   display: flex;
   justify-content: center;
 }
+
+.btn-analisis-deshabilitado {
+  background-color: #9ca3af;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .usuario-email {
   display: block;             
   width: 100%;                
@@ -136,10 +134,18 @@ label {
   text-align: left;
 }
 
+.icono-verde-claro .material-icons {
+  font-size: 26px;
+}
+.nav-item.activo {
+  background-color: #f0fdf4;
+  color: #65a30d;
+  font-weight: 600;
+}
 
 .logo_inicio {
-  width: 120px; 
-  height: 120px;
+  width: 200px; 
+  height: 200px;
   border-radius: 12px;
   padding: 10px;
   margin-bottom: 25px;
@@ -249,7 +255,14 @@ h2 {
   width: 100%;
   margin-bottom: 20px;
 }
-
+.fondo {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #eef4ff;
+  padding: 20px;
+}
 h3 {
   font-size: 14px;
   color: #6b7280;

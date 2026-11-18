@@ -1,40 +1,9 @@
 <template>
   <div class="interfaz-dashboard">
-    <div class="sidebar">
-      <div class="sidebar-superior">
-        <img src="/2.png" alt="logo" class="logo-horizontal">
-        <div class="bloque-usuario">
-          <div class="avatar">
-            <span class="material-icons">person</span>
-          </div>
-          <span class="usuario-rol">USUARIO</span>
-          <span class="usuario-email">quecaradeculopordiosquetenes@gmail.com</span>
-        </div>
-        <div class="menu">
-          <button @click="ir_carga" class="nav-item">
-            <span class="material-icons">cloud_upload</span>
-            Cargar datos
-          </button>
-          <button @click="" class="nav-item activo">
-            <span class="material-icons">bar_chart</span>
-            Estadísticas
-          </button>
-          <button @click="ir_historial" class="nav-item">
-            <span class="material-icons">description</span>
-            Historial
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-inferior">
-        <button @click="ir_inicio" class="boton-c-sesion">
-          <span class="material-icons">logout</span>
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
+    <Sidebar/>
 
     <div class="contenido-principal">
-      <template v-if="!actividadSeleccionadaId">
+      <template v-if="!hayAnalisisSeleccionados">
         <div class="tarjeta-panel cabecera-global">
           <div class="cabecera-seccion">
             <div class="icono-verde-claro">
@@ -72,22 +41,35 @@
               <p>Vas a ver como fue tu actividad a través de gráficos</p>
             </div>
           </div>
-          <input type="text" class="input-actividad-disabled" :value="actividadSeleccionadaNombre" disabled />
+          <input type="text" class="input-actividad-disabled" :value="nombreActividadSeleccionada" disabled />
         </div>
         <div class="grilla-totales" v-if="!filtrosAbiertos">
           <div class="tarjeta-total-mini">
             <span class="titulo-total">Total del inscriptos</span>
-            <span class="numero-total">{{ listaParticipantesBD.length }}</span>
+            <span class="numero-total">{{ totalParticipantes }}</span>
           </div>
           <div class="tarjeta-total-mini">
             <span class="titulo-total">Barrios registrados</span>
             <span class="numero-total verde">{{ cantidadBarrios }}</span>
           </div>
+          <div class="tarjeta-total-mini">
+            <span class="titulo-total">Promedio de edad de los participantes</span>
+            <span class="numero-total verde">{{ PromedioEdad }}</span>
+            <p class="text-xs text-gray-500 mt-1">Mediana: <strong>{{ medianaEdad }} años</strong></p>
+          </div>
+          <div class="tarjeta-total-mini">
+            <span class="titulo-total">Barrio mas frecuente</span>
+            <span class="numero-total verde">Barrio {{ BarrioModal }}</span>
+          </div>
+          <div class="tarjeta-total-mini">
+            <span class="titulo-total">Segmento Etario Predominante</span>
+            <span class="numero-total verde">{{ rangoEtarioModalTexto }}</span>
+          </div>
         </div>
         <div class="grilla-totales" v-else>
           <div class="tarjeta-total-mini full-width">
             <span class="titulo-total centrado">Total de inscriptos</span>
-            <span class="numero-total centrado">{{ listaParticipantesBD.length }}</span>
+            <span class="numero-total centrado">{{ totalParticipantes }}</span>
           </div>
         </div>
         <div class="tarjeta-panel panel-filtros">
@@ -97,7 +79,6 @@
               keyboard_double_arrow_down
             </span>
           </button>
-        
           <div v-if="filtrosAbiertos" class="seccion-filtros-internos">
             <div class="grilla-filtros-campos">
               <div class="campo-grupo">
@@ -130,6 +111,7 @@
                     <option disabled selected value="">Seleccionar sexo</option>
                     <option value="M">Masculino</option>
                     <option value="F">Femenino</option>
+                    <option value="X">X</option>
                   </select>
                   <span class="material-icons icon-select">expand_more</span>
                 </div>
@@ -145,38 +127,83 @@
               <div class="bloque-grafico">
             <span class="titulo-grafico">{{ filtros.barrio ? 'CANTIDAD DE GENTE POR EDAD' : 'CANTIDAD DE GENTE POR BARRIO' }}</span>
             <div class="contenedor-grafico-real">
-              <Bar :data="chartData" :options="chartOptions" />
+              <Line v-if="filtros.barrio" :data="chartData" :options="chartOptionsEdad"/>
+              <Bar v-else :data="chartData" :options="chartOptions" />
             </div>
             </div>
-            <div v-if="!filtros.sexo" class="bloque-grafico">
+            <div class="bloque-grafico">
               <span class="titulo-grafico">GRAFICO DE SEXO</span>
               <div class="contenedor-grafico-real  contenedor-rosquilla">
                 <canvas ref="chartRosquilla"></canvas>
               </div>
+           </div>            
            </div>
-           </div>
+           <div v-if="mostrarGraficoActividad "class="bloque-grafico grafico-actividad">
+                <span class="titulo-grafico">GRAFICO DE CANTIDAD DE PERSONAS POR ACTIVIDAD</span>
+                <div class="contenedor-grafico-real">
+                  <canvas ref="chartActividad"></canvas>
+                </div>
+            </div>
           </div>
 
-          <div class="tarjeta-panel panel-grafico-barras" >
-          <div class="fila-accion-archivo">
-           <div class="input-archivo-simulado">
-             <span class="material-icons">auto_awesome</span>
-             <input type="text" placeholder="Consulte con la IA sobre su actividad"  />
-           </div>
-           <button class="btn-verde-principal">
-             <span class="material-icons">add</span>
-             Consultar
-           </button>
-          </div>
-          </div>
+          <div class="tarjeta-panel panel-grafico-barras asistente-ia">
+            <div class="fila-accion-archivo">
+              <div class="input-archivo-simulado">
+                <span class="material-icons">auto_awesome</span>
 
+                <input
+                  type="text"
+                  v-model="consultaUsuario"
+                  placeholder="Preguntá algo sobre tu actividad..."
+                  @keyup.enter="consultaIA"
+                />
+              </div>
+
+              <button class="btn-verde-principal" @click="consultaIA" :disabled="cargandoIA">
+                <span class="material-icons">send</span>
+                {{ cargandoIA ? 'Consultando...' : 'Consultar' }}
+              </button>
+            </div>
+            <div class="preguntas-ia">
+              <span class="titulo-preguntas">Podés consultar:</span>
+              <div class="lista-preguntas">
+                <button v-for="pregunta in preguntasSugeridas" :key="pregunta" class="btn-pregunta-ia" @click="consultaUsuario = pregunta">
+                  {{ pregunta }}
+                </button>
+              </div>
+            </div>
+            <div v-if="respuestaIA" class="respuesta-ia">
+              <div class="encabezado-respuesta">
+                <span class="material-icons">auto_awesome</span>
+                <h3>Análisis de la actividad</h3>
+              </div>
+              <div class="seccion-respuesta">
+                <h4>Resumen</h4>
+                <p>{{ respuestaIA.resumen }}</p>
+              </div>
+              <div class="seccion-respuesta">
+                <h4>Observaciones</h4>
+                <ul>
+                  <li v-for="(obs, index) in respuestaIA.observaciones" :key="index">
+                    {{ obs }}
+                  </li>
+                </ul>
+              </div>
+              <div class="seccion-recomendacion">
+                <h4>
+                  <span class="material-icons">lightbulb</span>
+                  Recomendación
+                </h4>
+                <p>{{ respuestaIA.recomendacion }}</p>
+              </div>
+            </div>
+          </div>
           <div class="tarjeta-panel panel-mapa">
             <span class="titulo-grafico">MAPA DE LOCALIZACIÓN</span>
             <div class="contenedor-grafico-real-mapa">
               <div id="mapa-contenedor"></div>
             </div>
           </div>
-        
         <div class="tarjeta-panel panel-tabla">
           <div class="cabecera-tabla-info">
             <h4>Resultados</h4>
@@ -191,19 +218,21 @@
             <table class="tabla-datos">
               <thead>
                 <tr>
-                  <th>Nombre</th> <th>Apellido</th> <th>DNI</th> <th>Teléfono</th> <th>Correo</th> <th>Barrio</th> <th>Edad</th> <th>Sexo</th>
+                  <th>Nombre</th> <th>Apellido</th> <th>DNI</th> <th>Teléfono</th> <th>Correo</th> <th>Barrio</th> <th>Edad</th> <th>Sexo</th> <th>Ciudad</th> <th>Provincia</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(participantes, i) in filtroParticipantes" :key="i">
-                  <td>{{ participantes.nombre }}</td>
-                  <td>{{ participantes.apellido }}</td>
-                  <td class="txt-bold">{{ participantes.dni }}</td>
-                  <td class="txt-bold">{{ participantes.telefono }}</td>
-                  <td class="txt-link">{{ participantes.correo }}</td>
-                  <td>{{ participantes.barrio }}</td>
-                  <td>{{ participantes.edad }}</td>
-                  <td>{{ participantes.sexo }}</td>
+                <tr v-for="(listaParticipantesBD, i) in filtroParticipantes" :key="i">
+                  <td>{{ listaParticipantesBD.nombre }}</td>
+                  <td>{{ listaParticipantesBD.apellido }}</td>
+                  <td>{{ listaParticipantesBD.dni }}</td>
+                  <td>{{ listaParticipantesBD.telefono }}</td>
+                  <td>{{ listaParticipantesBD.correo }}</td>
+                  <td>{{ listaParticipantesBD.barrio?.nombre || 'Sin barrio' }}</td>
+                  <td>{{ listaParticipantesBD.edad }}</td>
+                  <td>{{ listaParticipantesBD.sexo }}</td>
+                  <td>{{ listaParticipantesBD.barrio?.ciudad?.nombre}}</td>
+                  <td>{{ listaParticipantesBD.barrio?.ciudad?.provincia?.nombre }}</td>
                 </tr>
               </tbody>
             </table>
@@ -219,39 +248,18 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { ir_carga, ir_inicio, ir_historial } from '@/components/navegacion';
+import { ir_carga,cerrar_sesion, ir_historial } from '@/components/navegacion';
 import { Bar, Line } from 'vue-chartjs';
-import L from 'leaflet';
-import { listaActividades,listaParticipantesBD } from '@/components/listas'; 
+import L, { map } from 'leaflet';
+import { listaParticipantesBD,cargarParticipantes } from '@/components/listas'; 
 import Chart from 'chart.js/auto';
-import { 
-  Chart as ChartJS, 
-  Title, 
-  Tooltip, 
-  Legend, 
-  ArcElement, 
-  DoughnutController, 
-  BarElement, 
-  CategoryScale, 
-  LinearScale, 
-  LineController, 
-  LineElement, 
-  PointElement 
-} from 'chart.js';
+import { Chart as ChartJS,Title, Tooltip,Legend,ArcElement,DoughnutController,BarElement,CategoryScale,LinearScale,LineController,LineElement,PointElement} from 'chart.js';
+import { useRoute } from 'vue-router';
+import Sidebar from '@/modules/extras/components/sidebar.vue';
 
-ChartJS.register(
-  Title, 
-  Tooltip, 
-  Legend, 
-  ArcElement, 
-  DoughnutController, 
-  BarElement, 
-  CategoryScale, 
-  LinearScale, 
-  LineController, 
-  LineElement, 
-  PointElement
-);
+ChartJS.register( Title, Tooltip, Legend, ArcElement, DoughnutController, BarElement, CategoryScale, LinearScale, LineController, LineElement, PointElement);
+
+const route= useRoute();
 
 const mapa = ref(null);
 const capasMapa = ref(null); 
@@ -261,12 +269,28 @@ const provinciaActual = ref('');
 const latitudUsuario = ref(null);  
 const longitudUsuario = ref(null);
 
-const actividadSeleccionadaId = ref(1); 
-const actividadSeleccionadaNombre = ref('Juntada 1');
+const actividadSeleccionadaId = ref(route.query.id ? Number(route.query.id) : null); 
+const actividadSeleccionadaNombre = ref('');
 
 const filtrosAbiertos = ref(false);
 const chartRosquilla = ref(null);
+const chartActividad = ref(null);
+const consultaUsuario = ref('');
+const respuestaIA = ref(null);
+const cargandoIA = ref(false);
+let graficoActividad = null;
 let llamargraficorosquilla = null;
+
+const preguntasSugeridas = [
+  '¿Cuál es el perfil predominante de los inscriptos?',
+  '¿Qué barrios tienen mayor participación?',
+  '¿Cómo se distribuyen los participantes por edad?',
+  '¿Qué diferencias hay entre hombres y mujeres?',
+  '¿Qué aspectos se podrían mejorar en esta actividad?',
+  '¿Qué recomendaciones harías para futuras actividades?',
+  '¿La participación fue equilibrada entre los distintos grupos?',
+  '¿Qué conclusiones generales se pueden obtener?'
+];
 
 const filtros = ref({
   barrio: '',
@@ -275,19 +299,155 @@ const filtros = ref({
   edadMax: '',
 });
 const ordenActual = ref('');
+const consultaIA = async () => {
+
+  if (!consultaUsuario.value.trim()) {
+    alert('Escribí qué querés consultar.');
+    return;
+  }
+
+  try {
+
+    cargandoIA.value = true;
+    respuestaIA.value = null;
+
+    const respuesta = await fetch(
+      'http://localhost:3000/api/archivos/consulta-actividad',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...resumenEstadisticas.value,
+          pregunta: consultaUsuario.value
+        }),
+      }
+    );
+
+    if (!respuesta.ok) {
+      throw new Error('Error al consultar la IA');
+    }
+
+    respuestaIA.value = await respuesta.json();
+
+  } catch (error) {
+
+    console.error('Error consultando IA:', error);
+    alert('No se pudo generar el análisis.');
+
+  } finally {
+
+    cargandoIA.value = false;
+
+  }
+};
+const mostrarGraficoActividad=computed(()=> {
+  if(idsAnalisisSeleccionados.value.length>0){
+    return new Set(idsAnalisisSeleccionados.value.map(Number)).size>=2;
+  }
+  if(actividadSeleccionadaId.value !== null){
+    return false;
+  }
+  return listaActividades.value.length>=2;
+});
+
+const nombresArchivosSelccionados = computed(() => {
+  const ids = idsAnalisisSeleccionados.value;
+
+  if (ids.length > 0) {
+    return listaActividades.value
+      .filter(actividad => ids.includes(Number(actividad.id)))
+      .map(actividad => actividad.archivo?.nombre)
+      .filter(Boolean);
+  }
+
+  if (actividadSeleccionadaId.value !== null) {
+    const actividad = listaActividades.value.find(
+      a => Number(a.id) === Number(actividadSeleccionadaId.value)
+    );
+
+    return actividad?.archivo?.nombre
+      ? [actividad.archivo.nombre]
+      : [];
+  }
+
+  return [];
+});
+
+const nombreActividadSeleccionada = computed(()=>{
+  return nombresArchivosSelccionados.value.join(',')
+});
+
+const listaActividades = ref([])
+
+const cargaActividades = async () => {
+  try{
+    const respuesta = await fetch ('http://localhost:3000/api/analisis');
+
+    if(!respuesta.ok){
+      throw new Error('Error al obtener las actividades');
+    }
+    listaActividades.value=await respuesta.json();
+    console.log('ACTIVIDADES RECIBIDAS:', listaActividades.value);
+  }
+  catch(error){
+    console.log('Error al cargar las actividades:', error)
+  }
+} 
+const idsAnalisisSeleccionados = computed(() => {
+  const ids = route.query.ids;
+
+  if (!ids) {
+    return [];
+  }
+
+  return String(ids)
+    .split(',')
+    .map(id => Number(id))
+    .filter(id => Number.isInteger(id) && id > 0);
+});
+
+const hayAnalisisSeleccionados = computed(() => {
+  return (
+    idsAnalisisSeleccionados.value.length > 0 ||
+    actividadSeleccionadaId.value !== null
+  );
+});
 
 const filtroParticipantes = computed(() =>{
-  let resultado = listaParticipantesBD.value.filter(P=>{
-    if (filtros.value.barrio && P.barrio !== filtros.value.barrio){
+
+  const idsSeleccionados=idsAnalisisSeleccionados.value
+
+  let resultado = listaParticipantesBD.value.filter((p)=>{
+
+    if (idsSeleccionados.length > 0) {
+      if (
+        !p.analisis?.some((analisis) =>
+          idsSeleccionados.includes(Number(analisis.id))
+        )
+      ) {
+        return false;
+      }
+    } else if (
+      actividadSeleccionadaId.value !== null &&
+      !p.analisis?.some(
+        (analisis) =>
+          Number(analisis.id) === Number(actividadSeleccionadaId.value)
+      )
+    ) {
       return false;
     }
-    if (filtros.value.sexo && P.sexo !== filtros.value.sexo){
+    if (filtros.value.barrio && p.barrio?.nombre !== filtros.value.barrio){
       return false;
     }
-    if (filtros.value.edadMax && P.edad > Number(filtros.value.edadMax)){
+    if (filtros.value.sexo && p.sexo !== filtros.value.sexo){
+      return false;
+    }
+    if (filtros.value.edadMax && p.edad > Number(filtros.value.edadMax)){
       return false
     }
-    if (filtros.value.edadMin && P.edad < Number(filtros.value.edadMin)){
+    if (filtros.value.edadMin && p.edad < Number(filtros.value.edadMin)){
       return false
     }
     return true;
@@ -301,86 +461,69 @@ const filtroParticipantes = computed(() =>{
   return resultado;
 });
 
-const listaParticipantes = ref([
-  { nombre: 'Lautaro', apellido: 'Vera', dni: '46887829', telefono: '3564368214', correo: 'colo30036@gmail.com', barrio: 'Sáenz Peña', edad: 20, sexo: 'M' },
-  { nombre: 'Sofía', apellido: 'Gómez', dni: '42105938', telefono: '3564521098', correo: 'sofi.gomez@gmail.com', barrio: 'Centro', edad: 24, sexo: 'F' },
-  { nombre: 'Mateo', apellido: 'Rossi', dni: '44521089', telefono: '3564632145', correo: 'mrossi@hotmail.com', barrio: 'La Milka', edad: 22, sexo: 'M' },
-  { nombre: 'Valentina', apellido: 'Pérez', dni: '39852147', telefono: '3564412589', correo: 'valen.perez@gmail.com', barrio: 'Barrio Jardín', edad: 28, sexo: 'F' },
-  { nombre: 'Joaquín', apellido: 'Sosa', dni: '45123987', telefono: '3564587963', correo: 'joaco.sosa@outlook.com', barrio: 'Consolata', edad: 21, sexo: 'X' },
-  { nombre: 'Camila', apellido: 'Martínez', dni: '41236547', telefono: '3564698741', correo: 'cami.martinez@gmail.com', barrio: 'Las Rosas', edad: 26, sexo: 'F' },
-  { nombre: 'Lucas', apellido: 'Fernández', dni: '43987412', telefono: '3564512369', correo: 'lucas.fer@gmail.com', barrio: 'Sáenz Peña', edad: 23, sexo: 'M' },
-  { nombre: 'Lucía', apellido: 'Alvarez', dni: '40789654', telefono: '3564478521', correo: 'lu.alvarez@yahoo.com', barrio: 'Centro', edad: 27, sexo: 'F' },
-  { nombre: 'Thiago', apellido: 'Benítez', dni: '47123890', telefono: '3564625814', correo: 'thiago.benitez@gmail.com', barrio: 'La Milka', edad: 19, sexo: 'M' },
-  { nombre: 'Martina', apellido: 'Díaz', dni: '38456123', telefono: '3564536982', correo: 'martina.diaz@gmail.com', barrio: 'Barrio Jardín', edad: 31, sexo: 'F' }
-]);
-
-async function buscarCoordenadasBarrio(nombreBarrio) {
-  const ubicacionContexto = ciudadActual.value ? `${ciudadActual.value}, ${provinciaActual.value}, Argentina` : 'San Francisco, Córdoba, Argentina';
-  const consulta = `${nombreBarrio}, ${ubicacionContexto}`;
-  
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(consulta)}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'InfoTapApp/1.0' } });
-    const data = await res.json();
-
-    if (data && data.length > 0) {
-      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-    }
-  } catch (e) {
-    console.error(`Error buscando coordenadas para: ${nombreBarrio}`, e);
-  }
-  return null;
-}
-
 
 async function procesarYDibujarBarrios() {
   if (!capasMapa.value) return;
-  capasMapa.value.clearLayers(); 
+
+  capasMapa.value.clearLayers();
 
   const conteoBarrios = {};
-  listaParticipantesBD.value.forEach(p => {
-    if (p.barrio) {
-      conteoBarrios[p.barrio] = (conteoBarrios[p.barrio] || 0) + 1;
+
+  filtroParticipantes.value.forEach((p) => {
+    const barrio = p.barrio;
+
+    if (!barrio?.nombre) return;
+
+    if (!conteoBarrios[barrio.id]) {
+      conteoBarrios[barrio.id] = {
+        nombre: barrio.nombre,
+        latitud: Number(barrio.latitud),
+        longitud: Number(barrio.longitud),
+        total: 0,
+      };
     }
+
+    conteoBarrios[barrio.id].total++;
   });
 
-  for (const [barrio, total] of Object.entries(conteoBarrios)) {
-    const coords = await buscarCoordenadasBarrio(barrio);
-    
-    if (coords) {
-      L.circle(coords, {
-        color: '#10b981',
-        fillColor: '#10b981',
-        fillOpacity: 0.5,
-        radius: total * 80
-      })
-      .addTo(capasMapa.value)
-      .bindPopup(`<b>Barrio ${barrio}</b><br>Participantes: ${total}`);
+  for (const datos of Object.values(conteoBarrios)) {
+    if (
+      datos.latitud === null ||
+      datos.latitud === undefined ||
+      datos.longitud === null ||
+      datos.longitud === undefined ||
+      datos.latitud === '' ||
+      datos.longitud === ''
+    ) {
+      console.warn('Barrio sin coordenadas:', datos.nombre);
+      continue;
     }
-  }
-}
 
-function obtenerUbicacionUsuario() {
-  if ('geolocation' in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        latitudUsuario.value = position.coords.latitude;
-        longitudUsuario.value = position.coords.longitude;
+    const lat = Number(datos.latitud);
+    const lon = Number(datos.longitud)
 
-        if (mapa.value) {
-          mapa.value.flyTo([latitudUsuario.value, longitudUsuario.value], 13);
-        }
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      lat < -90 ||
+      lat > 90 ||
+      lon < -180 ||
+      lon > 180
+    ) {
+      console.warn('Coordenadas inválidas:', datos.nombre);
+      continue;
+    }
 
-        await obtenerNombreLocalidad(latitudUsuario.value, longitudUsuario.value);
-        await procesarYDibujarBarrios();
-      },
-      (error) => {
-        console.warn('GPS no disponible o denegado:', error.message);
-        procesarYDibujarBarrios(); 
-      }
-    );
-  } else {
-    procesarYDibujarBarrios();
+    L.circle([lat,lon], {
+      color: '#10b981',
+      fillColor: '#10b981',
+      fillOpacity: 0.5,
+      radius: datos.total * 80,
+    })
+      .addTo(capasMapa.value)
+      .bindPopup(
+        `<b>Barrio ${datos.nombre}</b><br>Participantes: ${datos.total}`,
+      );
   }
 }
 
@@ -399,30 +542,173 @@ async function obtenerNombreLocalidad(lat, lon) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await cargaActividades();
+  await cargarParticipantes();
 
-  mapa.value = L.map('mapa-contenedor').setView([-38.416097, -63.616672], 4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(mapa.value);
+  await nextTick(); 
 
-  capasMapa.value = L.layerGroup().addTo(mapa.value);
+  const contenedorMapa = document.getElementById('mapa-contenedor');
+  if (contenedorMapa) {
+    mapa.value = L.map('mapa-contenedor').setView([-38.416097, -63.616672], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(mapa.value);
 
-  obtenerUbicacionUsuario();
+    capasMapa.value = L.layerGroup().addTo(mapa.value);
 
-  volveGraficoRosquilla()
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          latitudUsuario.value = lat;
+          longitudUsuario.value = lon;
+          mapa.value.flyTo([lat, lon], 13);
+          await obtenerNombreLocalidad(lat, lon);
+          await procesarYDibujarBarrios();
+        },
+        () => {
+          procesarYDibujarBarrios();
+        }
+      );
+    } else {
+      procesarYDibujarBarrios();
+    }
+  }
+
+  volveGraficoRosquilla();
+  dibujarGraficoActividad();
 });
 
 function obtenerdatosrosquilla(){
   const hombres= filtroParticipantes.value.filter(p=>p.sexo==='M').length;
   const mujeres= filtroParticipantes.value.filter(p=>p.sexo==='F').length;
   const x = filtroParticipantes.value.filter(p=>p.sexo==='X').length;
-  return {labels: ['HOMBRES','MUJERES','X'],datasets:[{data:[hombres,mujeres,x],backgroundColor: ['#3B82F6', '#EC4899','#6366f1']}]
-  }
+  return {labels: ['HOMBRES','MUJERES','X'],datasets:[{data:[hombres,mujeres,x],backgroundColor: ['#3B82F6', '#EC4899', '#9333EA'], borderWidth: 3, borderColor: '#ffffff', hoverOffset: 12}]}
 }
 
-function volveGraficoRosquilla(){
+function obtenerDatosActividad() {
+  const actividades = {};
+
+  filtroParticipantes.value.forEach(p => {
+    const idsParticipante = new Set(
+      (p.analisis || []).map(a => Number(a.id))
+    );
+
+    idsParticipante.forEach(id => {
+      if (idsAnalisisSeleccionados.value.length > 0 &&
+          !idsAnalisisSeleccionados.value.includes(id)) {
+        return;
+      }
+
+      if (
+        idsAnalisisSeleccionados.value.length === 0 &&
+        actividadSeleccionadaId.value !== null &&
+        id !== Number(actividadSeleccionadaId.value)
+      ) {
+        return;
+      }
+
+      if (!actividades[id]) {
+
+        const actividad = listaActividades.value.find(
+          a => Number(a.id) === id
+        );
+
+        actividades[id] = {
+          nombre:
+            actividad?.archivo.nombre ||
+            actividad?.nombre ||
+            `Actividad ${id}`,
+          M: 0,
+          F: 0,
+          X: 0
+        };
+      }
+
+      if (p.sexo === 'M') actividades[id].M++;
+      if (p.sexo === 'F') actividades[id].F++;
+      if (p.sexo === 'X') actividades[id].X++;
+    });
+  });
+
+  const lista = Object.values(actividades);
+
+  return {
+    labels: lista.map(a => a.nombre),
+    datasets: [
+      {
+        label: 'Hombres',
+        data: lista.map(a => a.M),
+        backgroundColor: '#3B82F6'
+      },
+      {
+        label: 'Mujeres',
+        data: lista.map(a => a.F),
+        backgroundColor: '#EC4899'
+      },
+      {
+        label: 'X',
+        data: lista.map(a => a.X),
+        backgroundColor: '#6366F1'
+      }
+    ]
+  };
+}
+
+function dibujarGraficoActividad() {
+
+  if (!chartActividad.value) return;
+
+  const datos = obtenerDatosActividad();
+
+  if (graficoActividad) {
+    graficoActividad.destroy();
+  }
+
+  graficoActividad = new Chart(chartActividad.value, {
+    type: 'bar',
+    data: datos,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom'
+        }
+      },
+
+      scales: {
+        x: {
+          stacked: true,
+          title: {
+            display: true,
+            text: 'Actividades'
+          }
+        },
+
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            precision: 0
+          },
+          title: {
+            display: true,
+            text: 'Cantidad de personas'
+          }
+        }
+      }
+    }
+  });
+}
+
+function volveGraficoRosquilla() {
   if (!chartRosquilla.value) {
     if (llamargraficorosquilla) {
       llamargraficorosquilla.destroy();
@@ -430,7 +716,40 @@ function volveGraficoRosquilla(){
     }
     return;
   }
+
   const datos = obtenerdatosrosquilla();
+
+  const pluginCentro = {
+    id: 'textoCentro',
+
+    afterDraw(chart) {
+      const { ctx, chartArea } = chart;
+
+      if (!chartArea) return;
+
+      const total = chart.data.datasets[0].data.reduce(
+        (acumulado, valor) => acumulado + valor,
+        0
+      );
+
+      const centroX = (chartArea.left + chartArea.right) / 2;
+      const centroY = (chartArea.top + chartArea.bottom) / 2;
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      ctx.font = 'bold 28px Arial';
+      ctx.fillStyle = '#1f2937';
+      ctx.fillText(total, centroX, centroY - 8);
+
+      ctx.font = '12px Arial';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('PARTICIPANTES', centroX, centroY + 17);
+
+      ctx.restore();
+    }
+  };
 
   if (llamargraficorosquilla) {
     llamargraficorosquilla.data = datos;
@@ -439,18 +758,75 @@ function volveGraficoRosquilla(){
     llamargraficorosquilla = new Chart(chartRosquilla.value, {
       type: 'doughnut',
       data: datos,
+
+      plugins: [pluginCentro],
+
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '70%',
+
+        layout: {
+          padding: {
+            top: 15,
+            bottom: 15,
+            left: 20,
+            right: 30
+          }
+        },
+
         plugins: {
-          legend: { position: 'bottom' }
+          legend: {
+            position: 'right',
+
+            labels: {
+              padding: 18,
+              usePointStyle: true,
+              pointStyle: 'circle',
+
+              generateLabels(chart) {
+                const etiquetas =
+                  Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+
+                const valores = chart.data.datasets[0].data;
+                const total = valores.reduce((a, b) => a + b, 0);
+
+                return etiquetas.map((etiqueta) => {
+                  const cantidad = valores[etiqueta.index];
+                  const porcentaje = total > 0
+                    ? Math.round((cantidad / total) * 100)
+                    : 0;
+
+                  return {
+                    ...etiqueta,
+                    text: `${etiqueta.text}  ${cantidad} (${porcentaje}%)`
+                  };
+                });
+              }
+            }
+          },
+
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const cantidad = context.raw;
+                const porcentaje = total > 0
+                  ? ((cantidad / total) * 100).toFixed(1)
+                  : 0;
+
+                return ` ${cantidad} participantes (${porcentaje}%)`;
+              }
+            }
+          }
         }
       }
     });
   }
 }
+
 watch(filtroParticipantes,()=>{
-  nextTick(() => {volveGraficoRosquilla()});
+  nextTick(() => {volveGraficoRosquilla(),dibujarGraficoActividad()});
   },{deep:true}
 );
 
@@ -472,15 +848,113 @@ function ordenarListaParticipantes(){
 }
 
 const listaBarriosUnicos = computed(() =>{
-  const barrios = listaParticipantesBD.value.map(p=>p.barrio).filter(barrio=>barrio);
-  return [...new Set(barrios)].sort();
+  const barrios = filtroParticipantes.value.map(p=>p.barrio?.nombre).filter(Boolean);
+  return [...new Set(barrios)].sort((a,b)=>a.localeCompare(b));
+});
+
+const cantidadBarrios = computed(() => {
+  const barrios = filtroParticipantes.value.map(p => p.barrio?.nombre).filter(Boolean);
+  return new Set(barrios).size;
+});
+
+const rangoEtarioModalTexto = computed(() => {
+  if (totalParticipantes.value === 0) return 'Sin datos';
+
+  let menores18 = 0;
+  let entre18y25 = 0;
+  let entre26y35 = 0;
+  let entre36y50 = 0 ;
+  let mas50 = 0;
+
+  filtroParticipantes.value.forEach(p => {
+    const edad = p.edad;
+    if (edad < 18) menores18++;
+    else if (edad >= 18 && edad <= 25) entre18y25++;
+    else if (edad >= 26 && edad <= 35) entre26y35++;
+    else if (edad >= 36 && edad <= 50) entre36y50++;
+    else mas50++;
+  });
+
+  const ganador = Math.max(menores18, entre18y25, entre26y35, entre36y50, mas50);
+
+  if (ganador === menores18) return 'Menores de 18';
+  if (ganador === entre18y25) return '18 a 25 años';
+  if (ganador === entre26y35) return '26 a 35 años';
+  if (ganador === entre36y50) return '36 a 50 años';
+  return 'Más de 50 años';
+});
+
+const porcentajeRangoModal = computed(() => {
+  if (totalParticipantes.value === 0) return 0;
+
+  const textoGanador = rangoEtarioModalTexto.value;
+  let cantidadGanadora = 0;
+
+  filtroParticipantes.value.forEach(p => {
+    const edad = p.edad;
+    if (textoGanador === 'Menores de 18' && edad < 18) cantidadGanadora++;
+    if (textoGanador === '18 a 25 años' && edad >= 18 && edad <= 25) cantidadGanadora++;
+    if (textoGanador === '26 a 35 años' && edad >= 26 && edad <= 35) cantidadGanadora++;
+    if (textoGanador === '36 a 50 años' && edad >= 36 && edad <= 50) cantidadGanadora++;
+    if (textoGanador === 'Más de 50 años' && edad > 50) cantidadGanadora++;
+  });
+
+  return ((cantidadGanadora / totalParticipantes.value) * 100).toFixed(0);
+});
+
+const totalParticipantes= computed(()=> {
+  return filtroParticipantes.value.length;
+});
+
+const PromedioEdad= computed(()=>{
+  if(totalParticipantes.value===0) return 0;
+
+  let suma =0;
+
+  for(let i = 0; i< filtroParticipantes.value.length;i++){
+    suma += filtroParticipantes.value[i].edad || 0;
+  }
+  return (suma / totalParticipantes.value).toFixed(1);
 })
 
-const cantidadBarrios= computed(()=>{
-  const barrios = listaParticipantesBD.value.map(p=>p.barrio).filter(barrio=>barrio&&barrio.trim()!=='')
-  return new Set (barrios).size;
+const medianaEdad=computed(()=>{
+  if(totalParticipantes.value===0){
+    return 0;
+  }
+  const edades = filtroParticipantes.value.map(p=>p.edad).sort((a,b)=>a-b);
+  const mitad = Math.floor(edades.length/2);
+
+  if(edades.length % 2 !==0){
+    return edades[mitad];
+  }else{
+    return Math.round((edades[mitad-1]+edades[mitad])/2);
+  }
 })
 
+const BarrioModal = computed(()=>{
+  if(totalParticipantes.value===0){
+    return 'sin datos'
+  }
+
+  const conteo={};
+
+  filtroParticipantes.value.forEach(p=>{
+    const nombreBarrio = p.barrio?.nombre || 'Sin barrio';
+    conteo[nombreBarrio] = (conteo[nombreBarrio] || 0)+1;
+  });
+
+  let mayorBarrio = 'Sin datos';
+  let mayorCantidad = 0;
+
+  for (const barrio in conteo) {
+    if (conteo[barrio] > mayorCantidad) {
+      mayorCantidad = conteo[barrio];
+      mayorBarrio = barrio;
+    }
+  }
+
+  return mayorBarrio
+})
 const chartData = computed(() => {
   const conteo={};
 
@@ -501,19 +975,50 @@ const chartData = computed(() => {
 
   }else{
     filtroParticipantes.value.forEach(p=>{
-      if(p.barrio){
-        const barrioNombre = p.barrio.trim();
-        conteo[barrioNombre] = (conteo[barrioNombre] || 0 ) + 1; 
+      const barrioNombre= p.barrio?.nombre;
+
+      if(barrioNombre){
+        conteo[barrioNombre]=(conteo[barrioNombre] || 0)+1
       }
-    });
+    })
   }
   return{labels: Object.keys(conteo),datasets: [{label:'participantes', backgroundColor: '#84cc16', borderRadius: 6, data:Object.values(conteo)}]};
 });
 
+const chartOptionsEdad = {
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: 'x',
+  animation: {
+    duration: 1800,
+    easing: 'easeInOutQuart'
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: 'Cantidad de participantes'
+      },
+      stepSize: 1,
+      ticks: {
+        stepSize: 1,
+        precision: 0
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: 'Edad'
+      }
+    }
+  }
+};
 const chartOptions = ref({
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
+  
   scales: {
     y: { beginAtZero: true, grid: { color: '#f3f4f6' },ticks:{stepSize: 1, precision: 0, callback: 
       function(value) {
@@ -522,133 +1027,191 @@ const chartOptions = ref({
           }
         }} },
     x: { grid: { display: false } }
+  },
+  animation: {
+    duration: 1800,
+    easing: 'easeInOutQuart'
   }
 });
 
-1
 const chartOptionsLinea = ref({
   responsive: true,
   maintainAspectRatio: false,
+
   interaction: {
-    mode: 'nearest', // Muestra solo el punto más cercano al cursor
-    intersect: true  // Solo si tocás exactamente el punto
+    mode: 'nearest',
+    intersect: true
   },
+
   plugins: {
-    legend: { display: true },
+    legend: {
+      display: false
+    },
+
     tooltip: {
       enabled: true,
-      filter: (tooltipItem) => tooltipItem.raw > 0, // Ignores los que están en 0
       callbacks: {
-        title: (tooltipItems) => `Período: ${tooltipItems[0].label}`,
-        label: (context) => ` ${context.dataset.label}: ${context.raw} participantes`
+        title: (items) => `Período: ${items[0].label}`,
+        label: (context) =>
+          ` ${context.raw} participantes`
       }
     }
   },
+
   scales: {
     y: {
       beginAtZero: true,
-      title: { display: true, text: 'Participantes' }
+      ticks: {
+        precision: 0
+      },
+      title: {
+        display: true,
+        text: 'Participantes'
+      },
+      grid: {
+        color: '#e5e7eb'
+      }
     },
+
     x: {
-      grid: { display: false }
+      grid: {
+        display: false
+      }
     }
+  },
+
+  elements: {
+    line: {
+      tension: 0.4,
+      borderWidth: 3
+    },
+    point: {
+      radius: 5,
+      hoverRadius: 9,
+      borderWidth: 2,
+      borderColor: '#ffffff'
+    }
+  },
+
+  animation: {
+    duration: 1500,
+    easing: 'easeInOutQuart'
   }
 });
 
 const coloresPaleta = [
-  '#3b82f6', // Azul
-  '#10b981', // Verde
-  '#f59e0b', // Naranja
-  '#ef4444', // Rojo
-  '#8b5cf6', // Violeta
-  '#ec4899', // Rosa
-  '#14b8a6', // Cyan
-  '#6366f1'  // Indigo
+  '#3b82f6', 
+  '#10b981', 
+  '#f59e0b', 
+  '#ef4444', 
+  '#8b5cf6', 
+  '#ec4899', 
+  '#14b8a6', 
+  '#6366f1'  
 ];
+
 const chartDataLinea = computed(() => {
+
   if (!listaActividades.value.length) {
     return { labels: [], datasets: [] };
   }
 
-  // Helper para convertir "DD/MM/YYYY" a objeto Date de JS
-  const parsearFecha = (strFecha) => {
-    const [dia, mes, anio] = strFecha.split('/');
-    return new Date(anio, mes - 1, dia);
-  };
+  const actividadesOrdenadas = [...listaActividades.value]
+    .filter(a => a.archivo?.fecha_carga)
+    .sort((a, b) =>
+      new Date(a.archivo.fecha_carga) - new Date(b.archivo.fecha_carga)
+    );
 
-  // 1. Obtener todas las fechas válidas para buscar el rango global
-  const fechas = listaActividades.value
-    .map(a => a.fecha ? parsearFecha(a.fecha) : null)
-    .filter(f => f && !isNaN(f));
+  const labels = actividadesOrdenadas.map(a => {
+    const fecha = new Date(a.archivo.fecha_carga);
 
-  if (!fechas.length) return { labels: [], datasets: [] };
-
-  // 2. Determinar el mes/año de inicio (mínimo) y fin (máximo)
-  let minFecha = new Date(Math.min(...fechas));
-  let maxFecha = new Date(Math.max(...fechas));
-
-  // Normalizamos al primer día del mes para iterar limpios
-  let inicio = new Date(minFecha.getFullYear(), minFecha.getMonth(), 1);
-  let fin = new Date(maxFecha.getFullYear(), maxFecha.getMonth(), 1);
-
-  // 3. Generar las etiquetas (labels) del eje X y las llaves de agrupación
-  const labels = [];
-  const clavesPeriodo = []; // Formato interno "YYYY-MM" para comparar fácil
-
-  let temp = new Date(inicio);
-  const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-  while (temp <= fin) {
-    const mes = temp.getMonth();
-    const anio = temp.getFullYear();
-    
-    // Etiqueta visible en el gráfico (ej: "Nov 25", "Ene 26")
-    labels.push(`${nombresMeses[mes]} ${String(anio).slice(-2)}`);
-    
-    // Clave para mapear datos (ej: "2025-11")
-    clavesPeriodo.push(`${anio}-${String(mes + 1).padStart(2, '0')}`);
-
-    // Avanzar un mes
-    temp.setMonth(temp.getMonth() + 1);
-  }
-
-  // 4. Mapear cada actividad al rango dinámico generado
-  const datasets = listaActividades.value.map((actividad, index) => {
-    const color = obtenerColor(index);
-    
-    // Creamos un array en cero por cada mes generado en la línea de tiempo
-    const dataMensual = new Array(clavesPeriodo.length).fill(0);
-
-    if (actividad.fecha) {
-      const [dia, mes, anio] = actividad.fecha.split('/');
-      const claveActividad = `${anio}-${mes.padStart(2, '0')}`;
-
-      // Encontrar en qué columna del gráfico cae la fecha de la actividad
-      const idx = clavesPeriodo.indexOf(claveActividad);
-      if (idx !== -1) {
-        dataMensual[idx] = actividad.participantes;
-      }
-    }
-
-    return {
-      label: actividad.nombre,
-      data: dataMensual,
-      borderColor: color,
-      backgroundColor: color,
-      tension: 0.3,
-      pointRadius: 6,
-      pointHoverRadius: 9,
-      pointBorderColor: '#ffffff',
-      pointBorderWidth: 2
-    };
+    return fecha.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   });
 
-  return { labels, datasets };
+  const cantidades = actividadesOrdenadas.map(a =>
+    Number(a.cantidad_participante) || 0
+  );
+
+  return {
+    labels,
+
+    datasets: [{
+      label: 'Participantes',
+      data: cantidades,
+
+      borderColor: '#10b981',
+
+      backgroundColor: (context) => {
+        const chart = context.chart;
+        const { ctx, chartArea } = chart;
+
+        if (!chartArea) return 'rgba(16, 185, 129, 0.2)';
+
+        const gradient = ctx.createLinearGradient(
+          0,
+          chartArea.top,
+          0,
+          chartArea.bottom
+        );
+
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.40)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+
+        return gradient;
+      },
+
+      fill: true,
+      tension: 0.4,
+
+      pointRadius: 5,
+      pointHoverRadius: 9,
+      pointBackgroundColor: '#10b981',
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 2
+    }]
+  };
 });
-// O función generadora si hay más actividades que colores en la lista
+const resumenEstadisticas = computed(() => {
+
+  const participantes = filtroParticipantes.value;
+
+  const hombres = participantes.filter(p => p.sexo === 'M').length;
+  const mujeres = participantes.filter(p => p.sexo === 'F').length;
+  const otros = participantes.filter(p => p.sexo === 'X').length;
+
+  return {
+    totalInscriptos: totalParticipantes.value,
+
+    totalBarrios: cantidadBarrios.value,
+
+    promedioEdad: Number(PromedioEdad.value),
+
+    barrioFrecuente: BarrioModal.value,
+
+    segmentoEtario: rangoEtarioModalTexto.value,
+
+    distribucionSexo: `
+      Masculino: ${hombres},
+      Femenino: ${mujeres},
+      X: ${otros}
+    `,
+
+    detalleActividades: [
+      {
+        nombre_actividad: nombreActividadSeleccionada.value,
+        sexo: 'Todos',
+        cantidad_personas: participantes.length
+      }
+    ]
+  };
+
+});
 const obtenerColor = (index) => {
   if (index < coloresPaleta.length) return coloresPaleta[index];
-  // Genera tonalidades equitativas en el espectro cromático
   const hue = (index * 137.5) % 360; 
   return `hsl(${hue}, 70%, 50%)`;
 };
@@ -660,6 +1223,17 @@ const obtenerColor = (index) => {
   color: #65a30d;
   font-weight: 600;
 }
+
+.grafico-actividad {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.grafico-actividad .contenedor-grafico-real {
+  width: 100%;
+  height: 350px;
+}
+
 .contenido-principal {
   flex: 1;
   display: flex;
@@ -858,9 +1432,16 @@ const obtenerColor = (index) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 0; /* Previene desbordamiento en Flexbox */
-  justify-content: center; /* Centra el canvas horizontalmente */
+  min-width: 0; 
+  justify-content: center;
 }
+.grafico-actividad {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 20px;
+}
+
+
 .grilla-filtros-campos {
   display: flex;
   gap: 25px;
@@ -893,13 +1474,13 @@ const obtenerColor = (index) => {
   width: 100%;
 }
 .contenedor-rosquilla {
-  display: flex;
-  justify-content: center; /* Centra el canvas horizontalmente */
-  align-items: center;     /* Centra el canvas verticalmente */
   width: 100%;
-  height: 250px;
-  position: relative;
+  height: 280px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+
 .select-personalizado select {
   width: 100%;
   padding: 12px 40px 12px 15px;
@@ -910,6 +1491,66 @@ const obtenerColor = (index) => {
   color: #9ca3af;
   appearance: none;
   cursor: pointer;
+}
+
+.contenedor-rosquilla canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.leyenda-sexo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 40%;
+}
+
+.dato-sexo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.indicador-sexo {
+  width: 10px;
+  height: 38px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.dato-hombres .indicador-sexo {
+  background: #3B82F6;
+}
+
+.dato-mujeres .indicador-sexo {
+  background: #EC4899;
+}
+
+.dato-otros .indicador-sexo {
+  background: #9333EA;
+}
+
+.nombre-sexo {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dato-sexo strong {
+  display: block;
+  font-size: 22px;
+  color: #1e293b;
+}
+
+.dato-sexo small {
+  color: #94a3b8;
+  font-size: 11px;
 }
 .contenedor-grafico-real-mapa {
   width: 100%;
@@ -1040,36 +1681,143 @@ const obtenerColor = (index) => {
 
 .tabla-datos {
   width: 100%;
+  min-width: 1100px;
   border-collapse: collapse;
-  text-align: left;
+  table-layout: auto;
 }
 
-.tabla-datos th {
-  background-color: #e5e7eb;
-  padding: 12px 15px;
-  font-size: 14px;
-  color: #111827;
-  font-weight: 700;
-}
-
-.tabla-datos th:first-child { border-radius: 8px 0 0 8px; }
-.tabla-datos th:last-child { border-radius: 0 8px 8px 0; }
-
+.tabla-datos th,
 .tabla-datos td {
-  padding: 14px 15px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 12px 14px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tabla-datos thead th {
+  background-color: #f5f7fa;
+  font-weight: 600;
+}
+
+.tabla-datos tbody tr:hover {
+  background-color: #f8fafc;
+}
+.asistente-ia {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.preguntas-ia {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.titulo-preguntas {
   font-size: 13px;
-  color: #374151;
-  font-weight: 500;
+  font-weight: 600;
+  color: #666;
 }
 
-.tabla-datos tr:hover td {
-  background-color: #f9fafb;
+.lista-preguntas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.txt-bold { font-weight: 700; }
-.txt-link { color: #2563eb; }
+.btn-pregunta-ia {
+  border: 1px solid #dce5dc;
+  background: #f7faf7;
+  color: #3d6842;
+  border-radius: 20px;
+  padding: 9px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+}
 
+.btn-pregunta-ia:hover {
+  background: #e8f5e9;
+  border-color: #8bc34a;
+}
+
+.respuesta-ia {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 22px;
+  border: 1px solid #e5e9e5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.encabezado-respuesta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #eee;
+  color: #72b916;
+}
+
+.encabezado-respuesta h3 {
+  margin: 0;
+  color: #333;
+  font-size: 17px;
+}
+
+.seccion-respuesta {
+  margin-bottom: 20px;
+}
+
+.seccion-respuesta h4,
+.seccion-recomendacion h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.seccion-respuesta p,
+.seccion-recomendacion p {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.seccion-respuesta ul {
+  padding-left: 20px;
+  margin: 8px 0 0;
+}
+
+.seccion-respuesta li {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 7px;
+}
+
+.seccion-recomendacion {
+  background: #f5faed;
+  border-left: 4px solid #83c91a;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.seccion-recomendacion h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #568b12;
+  margin-bottom: 8px;
+}
+
+.btn-verde-principal:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .paginacion-wrapper {
   display: flex;
   justify-content: flex-end;

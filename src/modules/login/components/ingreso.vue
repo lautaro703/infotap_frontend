@@ -1,107 +1,115 @@
 <template>
   <div class="fondo">
     <div class="contenedor">
-      <img src="/1.png" alt="logo" class="logo_inicio"/>
+      <img src="/1.png" alt="InfoTap" class="logo_inicio" />
       <div class="centro_texto">
-        <h1>¡Bienvenido de nuevo!</h1>
-        <h2>Ingresa tus credenciales para acceder</h2>
+        <h1>¡Bienvenido!</h1>
+        <h2>Ingresá y accedé a nuestro sistema</h2>
       </div>
-      <div class="parte_formulario">
-        <label>Correo electrónico <span class="obligatorio">*</span></label>
-        <input type="text" v-model="correo" placeholder="usuario@gmail.com" class="escribir">
-      </div>
-      <div class="parte_formulario">
-        <div class="parte_contraseña">
-          <label>Contraseña <span class="obligatorio">*</span></label>
-          <a v-on:click="recuperar_clave" class="olvidaste-link">¿Olvidaste tu contraseña?</a>
-        </div>
-        <input type="password" v-model="contra" placeholder="••••••••" class="escribir">
-      </div>
-      <div class="recordar-checkbox">
-        <input type="checkbox" id="remember" class="estilo-checkbox"/>
-        <label for="remember" class="remember-label">Recordar mi sesión</label>
-      </div>
-      <button @click="verificacion" class="boton_principal">INGRESAR</button>
-      <div class="parte_registro">
-        <h3>¿No tienes cuenta?</h3>
-        <button @click="crear_usuario" class="boton_registro">Regístrate</button>
-      </div>
+      <button class="boton_google" @click="ingresarConGoogle">
+        <img src="/Google.svg.webp" alt="Google" />
+        Continuar con Google
+      </button>
+      <p v-if="error" class="mensaje_error">{{ error }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { crear_usuario, verificacion, recuperar_clave } from '@/components/navegacion';
-import router from '@/router';
+import { ref } from 'vue'
+import { signInWithPopup } from 'firebase/auth'
+import { auth, proveedorGoogle } from '@/services/firebase'
+import router from '@/router'
 
+const error = ref('')
+
+const ingresarConGoogle = async () => {
+  try {
+    error.value = ''
+    const resultado = await signInWithPopup(auth, proveedorGoogle)
+    const usuario = resultado.user
+    console.log('UID:', usuario.uid)
+    console.log('Nombre:', usuario.displayName)
+    console.log('Correo:', usuario.email)
+
+    const token = await usuario.getIdToken()
+    const respuesta= await fetch('http://localhost:3000/api/usuarios/login-google',{
+      method:'POST',
+      headers:{authorization:`Bearer ${token}`},
+    })
+    if(!respuesta.ok){
+      throw new Error('No se pudo registrar el usuario en el sistema')
+    }
+    const usuarioRegistrado = await respuesta.json()
+    console.log('Usuario registrado',usuarioRegistrado)
+    console.log('Token:', token)
+
+    router.push({ name: 'carga_archivo' })    
+    
+  } catch (err) {
+    console.error(err)
+    error.value = 'No se pudo iniciar sesión con Google.'
+  }
+}
 </script>
 
 <style scoped>
 
-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151; 
-  margin-bottom: 8px;
-}
 
-.obligatorio {
-  color: #ff0000; 
-}
-
-.parte_contraseña {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.contenedor {
   width: 100%;
-}
-
-.recordar-checkbox {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  margin-bottom: 30px;
-  text-align: left;
-}
-
-.estilo-checkbox {
-  width: 18px;
-  height: 18px;
-  margin-right: 10px;
-  cursor: pointer;
-}
-
-.remember-label {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 400;
-  margin-bottom: 0;
-}
-
-.parte_registro {
-  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  background: white;
+  border-radius: 20px;
   text-align: center;
-  margin-top: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-.boton_registro {
+.logo_inicio {
+  width: 200px;
+  margin-bottom: 30px;
+}
+
+.centro_texto h1 {
+  color: #172b4d;
+  font-size: 28px;
+}
+
+.centro_texto h2 {
+  color: #718096;
+  font-size: 15px;
+  font-weight: normal;
+  margin: 12px 0 30px;
+}
+
+.boton_google {
   width: 100%;
-  height: 45px;
-  background-color: white;
-  color: #1f2937; 
-  border-radius: 12px;
-  border: 1px solid #e5e7eb; 
-  font-size: 16px;
-  font-weight: 600; 
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #dce3ee;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
 }
 
-.boton_registro:hover {
-  background-color: #f9fafb; 
-  border-color: #d1d5db;
+.boton_google:hover {
+  background: #f5f8ff;
+  border-color: #4285f4;
 }
 
+.boton_google img {
+  width: 22px;
+}
+
+.mensaje_error {
+  color: red;
+  font-size: 13px;
+  margin-top: 15px;
+}
 </style>

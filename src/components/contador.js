@@ -20,3 +20,4 @@ export function contador_columna(){
         sumar_id,restar_id
     }
 }
+

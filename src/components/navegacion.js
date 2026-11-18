@@ -1,5 +1,6 @@
 import router from "@/router";
-import { ref } from "vue";
+import { auth } from "@/services/firebase";
+import { signOut } from "firebase/auth";
 
 export function ir_estadisticas(){
     router.push('/analisis')
@@ -22,4 +23,12 @@ export function crear_usuario(){
 }
 export function verificacion(){
     router.push('verificacion')
+}
+export async function cerrar_sesion(){
+    try{
+        await signOut(auth) 
+        router.push('/')
+    }catch(error){
+        console.log('Error al cerrar sesión',error)
+    }
 }
